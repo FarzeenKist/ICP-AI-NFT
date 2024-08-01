@@ -3,10 +3,9 @@ import { v4 as uuidv4 } from "uuid";
 import { systemMessage } from "./utils/ai";
 import express, { Request, Response } from "express";
 import cors from "cors";
+import fetch from "node-fetch"; // Ensure you have node-fetch installed
+import { Actor, HttpAgent } from "@dfinity/agent";
 
-/**
- * Message record
- */
 type Message = {
   role: string;
   content: string;
@@ -20,7 +19,7 @@ type BaseMessage = {
 
 type ConversationPayload = { userIdentity: string };
 
-type AddMessgeToConversationPayload = {
+type AddMessageToConversationPayload = {
   userIdentity: string;
   conversationId: string;
   message: BaseMessage;
@@ -34,6 +33,13 @@ type Conversation = {
 type ErrorMessage = { message: string };
 
 const userConversation = StableBTreeMap<string, Conversation>(0);
+
+// Configure the agent
+const agent = new HttpAgent();
+const canisterId = "your_canister_id"; // Replace with your actual canister ID
+const nftActor = Actor.createActor(idlFactory, { agent, canisterId });
+
+const OPEN_AI_API_KEY = process.env.OPEN_AI_API_KEY || "your_openai_api_key"; // Set your OpenAI API key in environment variables
 
 export default Server(() => {
   const app = express();
@@ -88,7 +94,7 @@ export default Server(() => {
       !payload.message?.content ||
       !payload.message?.role
     ) {
-      return res.status(400).json({ message: "Invild payload" });
+      return res.status(400).json({ message: "Invalid payload" });
     }
 
     const newMessage = {
@@ -115,13 +121,57 @@ export default Server(() => {
 
     if ("None" in removedConversation) {
       return res.status(400).json({
-        message: `Can not delete conversation with for user:${userIdentity}`,
+        message: `Cannot delete conversation for user:${userIdentity}`,
       });
     }
 
     return res
       .status(201)
-      .send(`The conversation associated to ${userIdentity} has been deleted`);
+      .send(`The conversation associated with ${userIdentity} has been deleted`);
+  });
+
+  // New endpoint to generate NFT
+  app.post("/generate-nft", async (req: Request, res: Response) => {
+    const { prompt, userPrincipal } = req.body;
+
+    if (!prompt || !userPrincipal) {
+      return res.status(400).json({ message: "NFT prompt and user principal are required" });
+    }
+
+    try {
+      const response = await fetch("https://api.openai.com/v1/images/generations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${OPEN_AI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          prompt,
+          n: 1,
+          size: "1024x1024",
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.status !== 200) {
+        const message = result.error.message;
+        return res.status(response.status).json({ message });
+      }
+
+      const imageUrl = result.data[0].url;
+
+      // Mint the NFT using the canister
+      const nftId = await nftActor.mintNFT(userPrincipal, imageUrl);
+
+      return res.status(200).json({ nftId, imageUrl });
+    } catch (error) {
+      if (error instanceof Error) {
+        return res.status(500).json({ message: error.message });
+      } else {
+        return res.status(500).json({ message: 'An unknown error occurred' });
+      }
+    }
   });
 
   return app.listen();

@@ -57,6 +57,37 @@ const useApi = () => {
     }
   }, []);
 
+  const generateNft = useCallback(async (prompt) => {
+    const url = "/api/generate-nft";
+    setUploading(true);
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + OPEN_AI_API_KEY()?.split('"')[1],
+        },
+        body: JSON.stringify({ prompt }),
+      });
+
+      const result = await response.json();
+
+      if (response.status !== 200) {
+        const message = result.error.message;
+        toast.error(message);
+        throw new Error(message);
+      }
+
+      toast.success("NFT generated successfully!");
+      setError(null);
+      setUploading(false);
+      return result; // Adjust this based on your backend response
+    } catch (error) {
+      setUploading(false);
+      setError(error);
+    }
+  }, []);
+
   return {
     data,
     error,
@@ -66,6 +97,7 @@ const useApi = () => {
     setData,
     chatMessage,
     setChatMessage,
+    generateNft,
   };
 };
 
