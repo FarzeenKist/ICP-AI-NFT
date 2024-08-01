@@ -1,6 +1,6 @@
-# **Dai - Decentralized AI Chatbot on ICP**
+# **NTFTAI - Decentralized AI NFT marketplace on ICP**
 
-Dai is a decentralized AI chatbot built on the Internet Computer Protocol (ICP). This README provides guidance on setting up and running the application.
+NFTAI is a decentralized AI NFT marketplace built on the Internet Computer Protocol (ICP). This README provides guidance on setting up and running the application.
 
 ## **Setup**
 
